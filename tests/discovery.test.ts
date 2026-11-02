@@ -4,7 +4,7 @@ import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { basename, join, sep } from "node:path";
 import { type TestContext, test } from "node:test";
-import { discoverPrompts } from "../src/discovery.ts";
+import { discoverPrompts, discoveryDirectories } from "../src/discovery.ts";
 
 async function fixture(t: TestContext) {
   const root = await mkdtemp(join(tmpdir(), "prompt-discovery-"));
@@ -320,5 +320,88 @@ test("discovery resolves a bounded number of entries at a time and stops at the 
   assert.ok(
     looked.size <= 4096 + 2 * (16 - 1),
     `looked up ${looked.size} entries`,
+  );
+});
+
+test("checks ancestor roots together, keeping root order and the first failure in path order", async (t) => {
+  const environment = {
+    XDG_CONFIG_HOME: "/config",
+    OPENCODE_TEST_HOME: "/home",
+  };
+  const context = { directory: "/work/a/b", worktree: "/work" };
+  const started: string[] = [];
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const sequential = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error("root checks ran one at a time")),
+      500,
+    );
+  });
+  t.after(() => clearTimeout(timer));
+  sequential.catch(() => undefined);
+  // Every check starts before any completes; later roots answer first.
+  const present = async (path: string): Promise<boolean> => {
+    started.push(path);
+    if (started.length === 4) {
+      release();
+    }
+    await Promise.race([gate, sequential]);
+    await new Promise((resolve) =>
+      setTimeout(resolve, 10 - started.indexOf(path)),
+    );
+    return path !== "/work/a/.opencode";
+  };
+  assert.deepEqual(await discoveryDirectories(context, environment, present), [
+    "/config/opencode",
+    "/work/a/b/.opencode",
+    "/work/.opencode",
+    "/home/.opencode",
+  ]);
+
+  const failing = async (path: string): Promise<boolean> => {
+    // The later root fails first; the earlier root's failure is still reported.
+    await new Promise((resolve) =>
+      setTimeout(resolve, path === "/work/a/b/.opencode" ? 20 : 0),
+    );
+    if (path === "/work/a/b/.opencode" || path === "/home/.opencode") {
+      throw new Error(`denied ${path}`);
+    }
+    return true;
+  };
+  await assert.rejects(
+    discoveryDirectories(context, environment, failing),
+    /denied \/work\/a\/b\/\.opencode/,
+  );
+});
+
+test("reports the ancestor limit only after every checked ancestor succeeds", async () => {
+  const environment = {
+    XDG_CONFIG_HOME: "/config",
+    OPENCODE_TEST_HOME: "/home",
+  };
+  const directory = `/${Array.from({ length: 300 }, (_, index) => `d${index}`).join("/")}`;
+  const context = { directory, worktree: "/" };
+  const checked: string[] = [];
+  const present = (path: string): Promise<boolean> => {
+    checked.push(path);
+    return Promise.resolve(true);
+  };
+  await assert.rejects(
+    discoveryDirectories(context, environment, present),
+    /ancestor-directory limit/,
+  );
+  assert.equal(checked.length, 256);
+  assert.ok(!checked.includes("/home/.opencode"));
+
+  const last = checked[255];
+  const failing = (path: string): Promise<boolean> =>
+    path === last
+      ? Promise.reject(new Error(`denied ${path}`))
+      : Promise.resolve(true);
+  await assert.rejects(
+    discoveryDirectories(context, environment, failing),
+    (error) => error instanceof Error && error.message === `denied ${last}`,
   );
 });
