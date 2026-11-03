@@ -277,6 +277,112 @@ test(
   },
 );
 
+/** Creates a symlink, or skips the test where symlinks need a privilege it lacks. */
+async function link(
+  t: TestContext,
+  target: string,
+  path: string,
+): Promise<boolean> {
+  try {
+    await symlink(target, path);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EPERM") {
+      t.skip("Symlink privilege unavailable");
+      return false;
+    }
+    throw error;
+  }
+}
+
+// Self-referencing symlinks are POSIX-only fixtures; Windows may not report ELOOP.
+const loops = process.platform !== "win32";
+
+test("keeps broken prompt-name symlinks as invalid entries and ignores other broken links", async (t) => {
+  const f = await fixture(t);
+  const prompts = join(f.global, "prompts");
+  const missing = join(f.root, "missing.md");
+  await writeFile(join(f.root, "plain.md"), "plain");
+  if (!(await link(t, missing, join(prompts, "review/dangling.md")))) {
+    return;
+  }
+  await link(t, join(f.root, "plain.md", "x.md"), join(prompts, "through.md"));
+  await link(t, missing, join(prompts, "notes.json"));
+  await link(t, join(f.root, "missing-dir"), join(prompts, "area"));
+  if (loops) {
+    await link(t, join(prompts, "loop.TXT"), join(prompts, "loop.TXT"));
+  }
+  // A later broken link does not shadow an earlier regular file.
+  await rm(join(f.custom, "prompts/review/evidence.md"));
+  await link(t, missing, join(f.custom, "prompts/review/evidence.md"));
+  const result = await discoverPrompts(
+    { directory: f.nested, worktree: f.project },
+    f.env,
+  );
+  assert.deepEqual(result.files.get("review/dangling.md"), {
+    path: join(prompts, "review/dangling.md"),
+    root: prompts,
+    relativePath: "review/dangling.md",
+  });
+  assert.equal(
+    result.files.get("through.md")?.path,
+    join(prompts, "through.md"),
+  );
+  if (loops) {
+    assert.equal(result.files.get("loop.TXT")?.path, join(prompts, "loop.TXT"));
+  }
+  assert.equal(result.files.has("notes.json"), false);
+  assert.equal(result.files.has("area"), false);
+  assert.equal(
+    result.files.get("review/evidence.md")?.path,
+    join(f.home, ".opencode/prompts/review/evidence.md"),
+  );
+});
+
+test("skips broken prompts roots like absent ones", async (t) => {
+  const f = await fixture(t);
+  const dangling = join(f.project, ".opencode/prompts");
+  const looping = join(f.home, ".opencode/prompts");
+  await rm(dangling, { recursive: true });
+  if (!(await link(t, join(f.root, "missing"), dangling))) {
+    return;
+  }
+  if (loops) {
+    await rm(looping, { recursive: true });
+    await link(t, looping, looping);
+  }
+  const result = await discoverPrompts(
+    { directory: f.nested, worktree: f.project },
+    f.env,
+  );
+  assert.deepEqual(result.directories, f.roots);
+  assert.equal(
+    result.files.get("review/evidence.md")?.path,
+    join(f.custom, "prompts/review/evidence.md"),
+  );
+});
+
+test("reports a prompt entry removed during discovery as a discovery change", async (t) => {
+  const f = await fixture(t);
+  const entry = join(f.global, "prompts/review/evidence.md");
+  const original = fs.realpath;
+  t.mock.method(fs, "realpath", async (path: string) => {
+    if (path === entry) {
+      await rm(entry);
+    }
+    return original(path);
+  });
+  syncBuiltinESMExports();
+  t.after(() => {
+    t.mock.restoreAll();
+    syncBuiltinESMExports();
+  });
+  await assert.rejects(
+    discoverPrompts({ directory: f.nested, worktree: f.project }, f.env),
+    { message: `Prompt discovery changed: ${entry}. Retry composition.` },
+  );
+});
+
 test("discovery resolves a bounded number of entries at a time and stops at the entry limit", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "prompt-discovery-"));
   t.after(() => rm(root, { recursive: true, force: true }));
