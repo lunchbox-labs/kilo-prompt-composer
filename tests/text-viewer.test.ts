@@ -46,13 +46,12 @@ test("viewers fit short text and keep long text within the resized terminal", as
     message: "Short\ntext",
   });
   const { scroll, body } = parts(element);
-  // Paging keys apply to this viewer only while its scroll box has focus.
   assert.deepEqual(
     Array.from(layers, ({ target, targetMode }) => ({ target, targetMode })),
     [{ target: scroll, targetMode: "focus" }],
+    "paging keys apply to this viewer only while its scroll box has focus",
   );
-  // Layout reports the wrapped height of the text.
-  const wrap = (rows: number) => {
+  const reportWrappedHeight = (rows: number) => {
     body.height = rows;
     body.onSizeChange?.();
     return scroll.height;
@@ -62,8 +61,8 @@ test("viewers fit short text and keep long text within the resized terminal", as
     renderer.emit("resize", 120, rows);
     return scroll.height;
   };
-  assert.equal(wrap(3), 3);
-  const tall = wrap(500);
+  assert.equal(reportWrappedHeight(3), 3);
+  const tall = reportWrappedHeight(500);
   assert.ok(tall > 3 && tall < 30);
   const resized = resize(20);
   assert.ok(resized >= 1 && resized < tall);
