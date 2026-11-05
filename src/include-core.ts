@@ -25,11 +25,20 @@ export type PromptRead = (dependency: PromptDependency) => void;
 export type SnippetReader = (
   reference: string,
 ) => Promise<PromptDependency | undefined>;
+/**
+ * Receives the diagnostic for an include that was left out of the result. A
+ * malformed marker stays literal; any other failing include expands to
+ * nothing. The composed-size limit still rejects the whole expansion.
+ */
+export type SkippedInclude = (diagnostic: string) => void;
 
 interface Expansion {
   read: SnippetReader;
   includes: number;
   consumer?: string;
+  skip?: SkippedInclude;
+  /** Set once a skipped include reported the count or nesting limit. */
+  limitReported?: boolean;
 }
 
 interface IncludeFrame {
@@ -38,6 +47,7 @@ interface IncludeFrame {
 }
 
 class IncludeError extends SettingsError {}
+class IncludeLimitError extends SettingsError {}
 
 function promptSize(bytes: number): void {
   if (bytes > MAX_PROMPT_BYTES) {
@@ -181,6 +191,42 @@ async function snippet(
   };
 }
 
+function diagnostic(
+  error: SettingsError,
+  context: Expansion,
+  stack: IncludeFrame[],
+  reference: string | undefined,
+  source: { sourceText: string; offset: number } | undefined,
+  position: number,
+): IncludeError {
+  const references = stack.map((frame) => diagnosticName(frame.reference));
+  if (reference !== undefined) {
+    references.push(
+      safeSnippetPath(reference)
+        ? diagnosticName(reference)
+        : "[invalid reference]",
+    );
+  }
+  const chain =
+    references.length > 8
+      ? [...references.slice(0, 3), "...", ...references.slice(-4)]
+      : references;
+  const frame = stack.at(-1);
+  const location =
+    source === undefined || frame === undefined
+      ? ""
+      : ` In ${diagnosticName(frame.reference)} at ${sourcePosition(source.sourceText, source.offset + position)}.`;
+  // A caller that skips includes reports the consumer alongside each problem.
+  const consumer =
+    context.consumer === undefined || context.skip !== undefined
+      ? ""
+      : ` Consumer: ${context.consumer}.`;
+  return new IncludeError(
+    `${error.message}${consumer}${location}${chain.length === 0 ? "" : ` Include chain: ${chain.join(" -> ")}.`}`,
+    { cause: error },
+  );
+}
+
 async function expand(
   text: string,
   context: Expansion,
@@ -189,6 +235,38 @@ async function expand(
 ): Promise<string> {
   let position = 0;
   let reference: string | undefined;
+  const include = async (
+    marker: string,
+    target: string | undefined,
+  ): Promise<string> => {
+    const optional = marker.startsWith("{{include?");
+    if (target === undefined) {
+      throw new SettingsError(
+        `A prompt include has invalid syntax. Use {{include${optional ? "?" : ""}:folder/prompt.md}}.`,
+      );
+    }
+    context.includes += 1;
+    if (context.includes > MAX_INCLUDES || stack.length >= MAX_INCLUDE_DEPTH) {
+      throw new IncludeLimitError(
+        "The prompt include count or nesting limit was exceeded.",
+      );
+    }
+    const loaded = await snippet(target, context, optional);
+    if (loaded === undefined) {
+      return "";
+    }
+    if (stack.some((frame) => frame.path === loaded.path)) {
+      throw new SettingsError(
+        "The prompt includes contain a cycle. Remove the recursive include.",
+      );
+    }
+    return expand(
+      loaded.text,
+      context,
+      [...stack, { path: loaded.path, reference: target }],
+      loaded,
+    );
+  };
   try {
     promptSize(Buffer.byteLength(text, "utf8"));
     let result = "";
@@ -221,37 +299,34 @@ async function expand(
       if (marker.startsWith("\\")) {
         append(marker.slice(1));
       } else {
-        const optional = marker.startsWith("{{include?");
         reference = match.at(1);
-        if (reference === undefined) {
-          throw new SettingsError(
-            `A prompt include has invalid syntax. Use {{include${optional ? "?" : ""}:folder/prompt.md}}.`,
-          );
-        }
-        context.includes += 1;
-        if (
-          context.includes > MAX_INCLUDES ||
-          stack.length >= MAX_INCLUDE_DEPTH
-        ) {
-          throw new SettingsError(
-            "The prompt include count or nesting limit was exceeded.",
-          );
-        }
-        const included = await snippet(reference, context, optional);
-        if (included !== undefined) {
-          if (stack.some((frame) => frame.path === included.path)) {
-            throw new SettingsError(
-              "The prompt includes contain a cycle. Remove the recursive include.",
+        try {
+          append(await include(marker, reference));
+        } catch (error) {
+          if (
+            context.skip === undefined ||
+            !(error instanceof SettingsError) ||
+            error instanceof IncludeError
+          ) {
+            throw error;
+          }
+          // Past the limit every later marker fails the same way; describing
+          // each one would cost time proportional to the whole fan-out.
+          const repeated =
+            error instanceof IncludeLimitError &&
+            context.limitReported === true;
+          if (error instanceof IncludeLimitError) {
+            context.limitReported = true;
+          }
+          if (!repeated) {
+            context.skip(
+              diagnostic(error, context, stack, reference, source, position)
+                .message,
             );
           }
-          append(
-            await expand(
-              included.text,
-              context,
-              [...stack, { path: included.path, reference }],
-              included,
-            ),
-          );
+          if (reference === undefined) {
+            append(marker);
+          }
         }
       }
       promptSize(resultBytes);
@@ -264,27 +339,7 @@ async function expand(
     if (!(error instanceof SettingsError) || error instanceof IncludeError) {
       throw error;
     }
-    const references = stack.map((frame) => diagnosticName(frame.reference));
-    if (reference !== undefined) {
-      references.push(
-        safeSnippetPath(reference)
-          ? diagnosticName(reference)
-          : "[invalid reference]",
-      );
-    }
-    const chain =
-      references.length > 8
-        ? [...references.slice(0, 3), "...", ...references.slice(-4)]
-        : references;
-    const frame = stack.at(-1);
-    const location =
-      source === undefined || frame === undefined
-        ? ""
-        : ` at ${diagnosticName(frame.reference)}:${sourcePosition(source.sourceText, source.offset + position)}`;
-    throw new IncludeError(
-      `${error.message}${context.consumer === undefined ? "" : ` Consumer: ${context.consumer}.`}${location}${chain.length === 0 ? "" : ` Include chain: ${chain.join(" -> ")}.`}`,
-      { cause: error },
-    );
+    throw diagnostic(error, context, stack, reference, source, position);
   }
 }
 
@@ -292,9 +347,10 @@ export async function expandWithReader(
   text: string,
   read: SnippetReader,
   consumer?: string,
+  skip?: SkippedInclude,
 ): Promise<string> {
   if (!hasIncludeMarker(text)) {
     return text;
   }
-  return expand(text, { read, includes: 0, consumer }, []);
+  return expand(text, { read, includes: 0, consumer, skip }, []);
 }

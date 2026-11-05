@@ -1,32 +1,28 @@
-import { SettingsError } from "./errors.ts";
-import { hasIncludeMarker } from "./include-core.ts";
+import { diagnosticName } from "./errors.ts";
+import { type SkippedInclude, hasIncludeMarker } from "./include-core.ts";
+import { errorMessage, firstProblem } from "./notices.ts";
 
 const END = "\n</skill_files>\n</skill_content>";
 const UNKNOWN_FRAMING =
   "The skill output has unknown or incomplete framing. Its includes were not expanded.";
 
-export type SkillNotice = (reason: string) => void;
+/** `details` repeats the reason with every problem, for the server log. */
+export type SkillNotice = (reason: string, details?: string) => void;
 
 // OpenCode's V1 skill tool (1.19.0 and 1.19.3) supplies name/dir metadata,
 // but no structured body. Match its complete framing without rereading a
-// possibly changed, cached, or built-in SKILL.md. Unrecognized framing keeps
-// the native output and reports why, so the skill itself still loads.
+// possibly changed, cached, or built-in SKILL.md. Output that cannot be
+// composed keeps its native text and reports why, so the skill still loads.
 export async function expandSkillBody(
   output: string,
   metadata: unknown,
-  expand: (body: string) => Promise<string>,
+  expand: (
+    body: string,
+    consumer: string,
+    skip: SkippedInclude,
+  ) => Promise<string>,
   notify?: SkillNotice,
 ): Promise<string> {
-  if (
-    typeof metadata === "object" &&
-    metadata !== null &&
-    "truncated" in metadata &&
-    metadata.truncated === true
-  ) {
-    throw new SettingsError(
-      "The skill output was truncated before composition. Reduce its size and load it again.",
-    );
-  }
   if (!hasIncludeMarker(output)) {
     return output;
   }
@@ -34,6 +30,20 @@ export async function expandSkillBody(
     notify?.(reason);
     return output;
   };
+  if (
+    typeof metadata === "object" &&
+    metadata !== null &&
+    "truncated" in metadata &&
+    metadata.truncated === true
+  ) {
+    const skill =
+      "name" in metadata && typeof metadata.name === "string"
+        ? `Skill ${diagnosticName(metadata.name)}`
+        : "The skill";
+    return unchanged(
+      `${skill} output was truncated, so its includes were not expanded. Reduce the skill's size to compose it.`,
+    );
+  }
   if (
     typeof metadata !== "object" ||
     metadata === null ||
@@ -100,9 +110,34 @@ export async function expandSkillBody(
   if (!hasIncludeMarker(body)) {
     return output;
   }
-  return (
-    output.slice(0, prefix.length) +
-    (await expand(body)) +
-    output.slice(boundary)
-  );
+  const consumer = `skill ${diagnosticName(metadata.name)}`;
+  const skill = `Skill ${diagnosticName(metadata.name)}`;
+  const problems: string[] = [];
+  let expanded: string;
+  try {
+    expanded = await expand(body, consumer, (problem) =>
+      problems.push(problem),
+    );
+  } catch (error) {
+    return unchanged(
+      `${skill} includes were not expanded. ${errorMessage(error)}`,
+    );
+  }
+  // A skill left with no text would load as an empty instruction.
+  const emptied = problems.length > 0 && expanded.trim() === "";
+  if (emptied) {
+    // Lead with the fallback so the toast says the marker text remains.
+    problems[0] = `Its native text was kept because nothing else was left. ${problems[0]}`;
+  }
+  if (problems.length > 0) {
+    const reason = `${skill} has includes that were not expanded.`;
+    notify?.(
+      `${reason} ${firstProblem(problems)}`,
+      [reason, ...problems].join("\n- "),
+    );
+  }
+  if (emptied) {
+    return output;
+  }
+  return output.slice(0, prefix.length) + expanded + output.slice(boundary);
 }
