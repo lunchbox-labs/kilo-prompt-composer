@@ -1,11 +1,8 @@
-import type {
-  TuiDialogSelectProps,
-  TuiPluginApi,
-} from "@opencode-ai/plugin/tui";
+import type { TuiDialogSelectProps, TuiPluginApi } from "@kilocode/plugin/tui";
 
 /** Render small, fixed choices inside the host's existing dialog frame. */
 export async function createFixedMenu(api: TuiPluginApi) {
-  // OpenCode supplies its shared runtime; importing this entrypoint stays Node-safe.
+  // Kilo supplies its shared runtime; importing this entrypoint stays Node-safe.
   const {
     BoxRenderable,
     RenderableEvents,

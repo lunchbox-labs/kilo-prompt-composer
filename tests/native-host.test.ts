@@ -18,7 +18,7 @@ test(
     t.after(() => rm(root, { recursive: true, force: true }));
     let requests = 0;
     let unavailable = false;
-    let versions = ["1.19.0", "1.18.99", "1.20.0", "1.19.8-beta.1", "1.19.2"];
+    let versions = ["7.8.0", "7.7.99", "7.9.0", "7.8.8-beta.1", "7.8.2"];
     const server = createServer((_request, response) => {
       requests++;
       if (unavailable) {
@@ -30,12 +30,12 @@ test(
       response.setHeader("Content-Type", "application/json");
       response.end(
         JSON.stringify({
-          name: "opencode-ai",
-          "dist-tags": { latest: "1.20.0" },
+          name: "@kilocode/cli",
+          "dist-tags": { latest: "7.9.0" },
           versions: Object.fromEntries(
             versions.map((version) => [
               version,
-              { name: "opencode-ai", version },
+              { name: "@kilocode/cli", version },
             ]),
           ),
         }),
@@ -54,11 +54,11 @@ test(
     // Deliberately stale local inputs must not determine the registry selection.
     await writeFile(
       join(root, "package-lock.json"),
-      JSON.stringify({ version: "1.19.0" }),
+      JSON.stringify({ version: "7.8.0" }),
     );
     const options = {
       npm,
-      range: "1.19.x",
+      range: "7.8.x",
       cache: join(root, "cache"),
       env: {
         ...process.env,
@@ -71,22 +71,22 @@ test(
       },
       signal: t.signal,
     };
-    assert.equal(await resolveNativeVersion(options), "1.19.2");
+    assert.equal(await resolveNativeVersion(options), "7.8.2");
     const firstRequests = requests;
-    versions = [...versions, "1.19.9", "1.19.4"];
-    assert.equal(await resolveNativeVersion(options), "1.19.9");
+    versions = [...versions, "7.8.9", "7.8.4"];
+    assert.equal(await resolveNativeVersion(options), "7.8.9");
     assert.ok(
       requests > firstRequests,
       "Every resolution must fetch registry metadata afresh",
     );
     assert.equal(
-      await resolveNativeVersion({ ...options, range: ">=1.19.2 <1.19.9" }),
-      "1.19.4",
+      await resolveNativeVersion({ ...options, range: ">=7.8.2 <7.8.9" }),
+      "7.8.4",
     );
     const beforeFloor = requests;
     assert.equal(
-      await resolveNativeVersion({ ...options, requested: "1.19.0" }),
-      "1.19.0",
+      await resolveNativeVersion({ ...options, requested: "7.8.0" }),
+      "7.8.0",
     );
     assert.equal(
       requests,
@@ -94,11 +94,11 @@ test(
       "Explicit floor lane must stay reproducible",
     );
     await assert.rejects(
-      resolveNativeVersion({ ...options, requested: "1.20.0" }),
+      resolveNativeVersion({ ...options, requested: "7.9.0" }),
       /does not satisfy/,
     );
     await assert.rejects(
-      resolveNativeVersion({ ...options, range: "2.x" }),
+      resolveNativeVersion({ ...options, range: "8.x" }),
       /No match|No compatible|E404/,
     );
     unavailable = true;
@@ -111,20 +111,20 @@ test(
 );
 
 test("native version verification rejects mismatches and versions outside declared range", () => {
-  verifyNativeVersion("1.19.0", "1.19.x");
-  verifyNativeVersion("1.19.9", "1.19.x", "1.19.9");
+  verifyNativeVersion("7.8.0", "7.8.x");
+  verifyNativeVersion("7.8.9", "7.8.x", "7.8.9");
   for (const version of [
-    "1.18.34",
-    "1.20.0",
-    "1.19.9-beta.1",
+    "7.7.34",
+    "7.9.0",
+    "7.8.9-beta.1",
     "latest",
-    "v1.19.0",
+    "v7.8.0",
   ]) {
-    assert.throws(() => verifyNativeVersion(version, "1.19.x"));
+    assert.throws(() => verifyNativeVersion(version, "7.8.x"));
   }
-  assert.throws(() => verifyNativeVersion("1.19.0", "invalid range"));
+  assert.throws(() => verifyNativeVersion("7.8.0", "invalid range"));
   assert.throws(
-    () => verifyNativeVersion("1.19.0", "1.19.x", "1.19.9"),
+    () => verifyNativeVersion("7.8.0", "7.8.x", "7.8.9"),
     /actual CLI/,
   );
 });

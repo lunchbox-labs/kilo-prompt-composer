@@ -27,7 +27,7 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         id: node
         with:
-          node-version: '24'
+          node-version: '26'
           package-manager-cache: false
       - name: Identify the runner image
         id: image
@@ -85,13 +85,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        composition: [standalone, config-first]
-        opencode: ["latest-compatible", "floor"]
+        kilo: ["latest-compatible", "floor"]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     env:
-      OPENCODE_TEST_VERSION: ${{ matrix.opencode }}
-      CONFIG_COMPOSER_REF: 34c4e8491cd33ff9f7952623882a98738c6e752d
+      KILO_TEST_VERSION: ${{ matrix.kilo }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -100,7 +98,7 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         id: node
         with:
-          node-version: '24'
+          node-version: '26'
           package-manager-cache: false
       - name: Identify the runner image
         id: image
@@ -123,44 +121,5 @@ jobs:
         with:
           path: node_modules
           key: ${{ steps.dependencies.outputs.cache-primary-key }}
-      - name: Check out config-only compatibility baseline
-        if: matrix.composition != 'standalone'
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          repository: lunchbox-labs/opencode-config-composer
-          ref: ${{ env.CONFIG_COMPOSER_REF }}
-          path: compatibility/config-composer
-          persist-credentials: false
-      - name: Restore the built config-only package
-        if: matrix.composition != 'standalone'
-        id: baseline
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            compatibility/config-composer/node_modules
-            compatibility/config-composer/dist
-          # The baseline is a fixed commit, so its install and build only change with
-          # the runner platform and Node version.
-          key: config-composer-baseline-${{ env.CONFIG_COMPOSER_REF }}-${{ steps.image.outputs.os }}-${{ runner.arch }}-${{ steps.node.outputs.node-version }}
-      - name: Build config-only package
-        if: matrix.composition != 'standalone' && steps.baseline.outputs.cache-hit != 'true'
-        working-directory: compatibility/config-composer
-        run: |
-          npm ci
-          npm run build
-      - name: Save the built config-only package
-        if: matrix.composition != 'standalone' && steps.baseline.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            compatibility/config-composer/node_modules
-            compatibility/config-composer/dist
-          key: ${{ steps.baseline.outputs.cache-primary-key }}
-      - name: Test standalone
-        if: matrix.composition == 'standalone'
+      - name: Test native Kilo integration
         run: npm run test:native
-      - name: Test coexistence
-        if: matrix.composition != 'standalone'
-        run: npm run test:native
-        env:
-          CONFIG_COMPOSER_DIR: ${{ github.workspace }}/compatibility/config-composer

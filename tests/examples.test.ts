@@ -9,7 +9,7 @@ import { compose } from "../src/runtime.ts";
 test("review example authors its complete guidance in the original order", async () => {
   const root = resolve("docs/examples/review");
   const source = await readFile(
-    resolve(root, ".opencode/agents/review.md"),
+    resolve(root, ".kilo/agents/review.md"),
     "utf8",
   );
   const body = source.slice(source.indexOf("\n---\n") + 5).trim();
@@ -17,7 +17,7 @@ test("review example authors its complete guidance in the original order", async
     { directory: root, worktree: root },
     {
       XDG_CONFIG_HOME: resolve("docs/examples/empty-config"),
-      OPENCODE_TEST_HOME: resolve("docs/examples/empty-home"),
+      KILO_TEST_HOME: resolve("docs/examples/empty-home"),
     },
   );
   const { config: result, incomplete } = await compose(
@@ -27,7 +27,7 @@ test("review example authors its complete guidance in the original order", async
   );
   const [context, findings] = await Promise.all(
     ["context", "findings"].map((name) =>
-      readFile(resolve(root, `.opencode/prompts/review/${name}.md`), "utf8"),
+      readFile(resolve(root, `.kilo/prompts/review/${name}.md`), "utf8"),
     ),
   );
   // Keep the authored prose live while independently specifying each insertion

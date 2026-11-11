@@ -1,7 +1,4 @@
-import type {
-  TuiDialogSelectProps,
-  TuiPluginApi,
-} from "@opencode-ai/plugin/tui";
+import type { TuiDialogSelectProps, TuiPluginApi } from "@kilocode/plugin/tui";
 
 type Render = () => ReturnType<TuiPluginApi["ui"]["DialogAlert"]>;
 type Size = TuiPluginApi["ui"]["dialog"]["size"];

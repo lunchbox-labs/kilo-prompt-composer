@@ -9,7 +9,7 @@ const UNKNOWN_FRAMING =
 /** `details` repeats the reason with every problem, for the server log. */
 export type SkillNotice = (reason: string, details?: string) => void;
 
-// OpenCode's V1 skill tool (1.19.0 and 1.19.3) supplies name/dir metadata,
+// Kilo 7.8.27 supplies name/dir metadata,
 // but no structured body. Match its complete framing without rereading a
 // possibly changed, cached, or built-in SKILL.md. Output that cannot be
 // composed keeps its native text and reports why, so the skill still loads.
@@ -61,50 +61,59 @@ export async function expandSkillBody(
     );
   }
   const prefix = `<skill_content name="${metadata.name}">\n# Skill: ${metadata.name}\n\n`;
-  // Native built-in skills use ".". The directory is framing text, not a path
-  // used for include resolution; preserve it exactly as the host emitted it.
-  const footer = [
-    "",
-    "",
-    `Base directory for this skill: ${metadata.dir}`,
-    "Relative paths in this skill (e.g., scripts/, reference/) are relative to this base directory.",
-    "Note: file list is sampled.",
-    "",
-    "<skill_files>\n",
-  ].join("\n");
-  if (!output.startsWith(prefix) || !output.endsWith(END)) {
-    return unchanged(UNKNOWN_FRAMING);
-  }
   let boundary: number | undefined;
-  const filesEnd = output.length - END.length;
-  for (
-    let candidate = output.indexOf(footer, prefix.length);
-    candidate !== -1;
-    candidate = output.indexOf(footer, candidate + 1)
-  ) {
-    const filesStart = candidate + footer.length;
-    if (filesStart > filesEnd) {
-      continue;
+  if (metadata.dir === "builtin") {
+    const ending = "\n</skill_content>";
+    if (!output.startsWith(prefix) || !output.endsWith(ending)) {
+      return unchanged(UNKNOWN_FRAMING);
     }
-    const files = output.slice(filesStart, filesEnd);
-    // Filenames are not XML-escaped and can contain tags or newlines. A
-    // nonempty list may be one such filename; never choose the first footer
-    // when another complete decomposition is possible.
-    if (
-      files !== "" &&
-      !(files.startsWith("<file>") && files.endsWith("</file>"))
+    boundary = output.length - ending.length;
+    if (boundary < prefix.length) {
+      return unchanged(UNKNOWN_FRAMING);
+    }
+  } else {
+    const footer = [
+      "",
+      "",
+      `Base directory for this skill: ${metadata.dir}`,
+      "Relative paths in this skill (e.g., scripts/, reference/) are relative to this base directory.",
+      "Note: file list is sampled.",
+      "",
+      "<skill_files>\n",
+    ].join("\n");
+    if (!output.startsWith(prefix) || !output.endsWith(END)) {
+      return unchanged(UNKNOWN_FRAMING);
+    }
+    const filesEnd = output.length - END.length;
+    for (
+      let candidate = output.indexOf(footer, prefix.length);
+      candidate !== -1;
+      candidate = output.indexOf(footer, candidate + 1)
     ) {
-      continue;
+      const filesStart = candidate + footer.length;
+      if (filesStart > filesEnd) {
+        continue;
+      }
+      const files = output.slice(filesStart, filesEnd);
+      // Filenames are not XML-escaped and can contain tags or newlines. A
+      // nonempty list may be one such filename; never choose the first footer
+      // when another complete decomposition is possible.
+      if (
+        files !== "" &&
+        !(files.startsWith("<file>") && files.endsWith("</file>"))
+      ) {
+        continue;
+      }
+      if (boundary !== undefined) {
+        return unchanged(
+          "The skill output has ambiguous body framing. Its includes were not expanded.",
+        );
+      }
+      boundary = candidate;
     }
-    if (boundary !== undefined) {
-      return unchanged(
-        "The skill output has ambiguous body framing. Its includes were not expanded.",
-      );
+    if (boundary === undefined) {
+      return unchanged(UNKNOWN_FRAMING);
     }
-    boundary = candidate;
-  }
-  if (boundary === undefined) {
-    return unchanged(UNKNOWN_FRAMING);
   }
   const body = output.slice(prefix.length, boundary);
   if (!hasIncludeMarker(body)) {

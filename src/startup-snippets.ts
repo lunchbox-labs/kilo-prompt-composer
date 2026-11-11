@@ -36,7 +36,7 @@ interface FailedRead {
 
 const CAPTURE_ATTEMPTS = 3;
 const SNIPPET_KEPT_CHANGING =
-  "A prompt snippet kept changing while loading. Restart OpenCode once edits settle.";
+  "A prompt snippet kept changing while loading. Restart Kilo once edits settle.";
 
 // Native instance disposal reruns factories but keeps the same imported module.
 const snapshots = new Map<string, Promise<StartupSnippets>>();
@@ -151,7 +151,7 @@ async function capture(
         .replace(/ Retry composition\.$/, "")
         .replace(" Try again.", "");
       warnings.push(
-        `Prompt files could not be confirmed unchanged after ${CAPTURE_ATTEMPTS} reads, so the latest reads are used. Restart OpenCode once edits settle. ${reason}`,
+        `Prompt files could not be confirmed unchanged after ${CAPTURE_ATTEMPTS} reads, so the latest reads are used. Restart Kilo once edits settle. ${reason}`,
       );
     }
     return { expand: attempted.expand, warnings };
@@ -176,14 +176,14 @@ export function startupSnippets(
   const xdg = environment.XDG_CONFIG_HOME;
   environment.XDG_CONFIG_HOME =
     xdg !== undefined && isAbsolute(xdg) ? xdg : join(home, ".config");
-  environment.OPENCODE_TEST_HOME = resolve(
-    environment.OPENCODE_TEST_HOME ?? home,
+  environment.KILO_TEST_HOME = resolve(
+    (environment.KILO_TEST_HOME ?? home).trim(),
   );
   if (
-    environment.OPENCODE_CONFIG_DIR !== undefined &&
-    environment.OPENCODE_CONFIG_DIR !== ""
+    environment.KILO_CONFIG_DIR !== undefined &&
+    environment.KILO_CONFIG_DIR !== ""
   ) {
-    environment.OPENCODE_CONFIG_DIR = resolve(environment.OPENCODE_CONFIG_DIR);
+    environment.KILO_CONFIG_DIR = resolve(environment.KILO_CONFIG_DIR);
   }
   const loaded = capture(normalized, environment);
   snapshots.set(key, loaded);

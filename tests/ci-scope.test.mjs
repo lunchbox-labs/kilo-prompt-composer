@@ -28,7 +28,7 @@ test("every other change keeps the native matrix", () => {
     "package.json",
     "package-lock.json",
     ".github/workflows/check.yml",
-    "docs/examples/review/.opencode/agents/review.md",
+    "docs/examples/review/.kilo/agents/review.md",
     "docs/README.md",
     "docs/wiki.md",
     ".github/workflows/wiki.yml",

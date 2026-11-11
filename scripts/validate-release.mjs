@@ -7,9 +7,9 @@ export function validateRelease(manifest, tag, lock) {
       "Remove the private publication guard only after release setup is approved.",
     );
   }
-  if (manifest.name !== "@lunchbox-labs/opencode-prompt-composer") {
+  if (manifest.name !== "@lunchbox-labs/kilo-prompt-composer") {
     throw new Error(
-      "The npm package name must be @lunchbox-labs/opencode-prompt-composer.",
+      "The npm package name must be @lunchbox-labs/kilo-prompt-composer.",
     );
   }
   if (
@@ -39,7 +39,7 @@ export function validateRelease(manifest, tag, lock) {
   }
   if (
     manifest.repository?.url !==
-    "git+https://github.com/lunchbox-labs/opencode-prompt-composer.git"
+    "git+https://github.com/lunchbox-labs/kilo-prompt-composer.git"
   ) {
     throw new Error(
       "The package repository must match the trusted publisher repository.",

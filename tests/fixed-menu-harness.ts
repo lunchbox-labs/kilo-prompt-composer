@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { registerHooks } from "node:module";
-import type { TuiDialogSelectProps } from "@opencode-ai/plugin/tui";
+import type { TuiDialogSelectProps } from "@kilocode/plugin/tui";
 import {
   BoxRenderable,
   ScrollBoxRenderable,

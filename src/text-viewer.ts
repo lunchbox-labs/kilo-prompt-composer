@@ -1,4 +1,4 @@
-import type { TuiPluginApi } from "@opencode-ai/plugin/tui";
+import type { TuiPluginApi } from "@kilocode/plugin/tui";
 
 // The host dialog starts a quarter down the screen; its padding plus this view's
 // title, footer, gaps and a bottom margin take the remaining rows.
@@ -6,7 +6,7 @@ const chromeRows = 7;
 
 /** Render read-only text in a keyboard-scrollable box inside the host's dialog frame. */
 export async function createTextViewer(api: TuiPluginApi) {
-  // OpenCode supplies its shared runtime; importing this entrypoint stays Node-safe.
+  // Kilo supplies its shared runtime; importing this entrypoint stays Node-safe.
   const {
     BoxRenderable,
     RenderableEvents,

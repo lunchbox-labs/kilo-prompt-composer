@@ -1,12 +1,12 @@
 {
-  "name": "@lunchbox-labs/opencode-prompt-composer",
+  "name": "@lunchbox-labs/kilo-prompt-composer",
   "version": "0.2.5",
-  "description": "Compose reusable prompt text in native OpenCode agents, commands and on-demand skills",
+  "description": "Compose reusable prompt text in native Kilo agents, commands and on-demand skills",
   "license": "MIT",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lunchbox-labs/opencode-prompt-composer.git"
+    "url": "git+https://github.com/lunchbox-labs/kilo-prompt-composer.git"
   },
   "engines": {
     "node": ">=22.18.0"
@@ -32,6 +32,7 @@
   "files": [
     "dist",
     "docs/examples",
+    "docs/wiki",
     "README.md",
     "LICENSE"
   ],
@@ -52,11 +53,11 @@
   "devDependencies": {
     "@eslint-community/eslint-plugin-eslint-comments": "4.8.1",
     "@eslint/js": "10.0.1",
-    "@opencode-ai/plugin": "1.19.5",
-    "@opencode-ai/sdk": "1.19.5",
-    "@opentui/core": "0.4.5",
-    "@opentui/keymap": "0.4.5",
-    "@opentui/solid": "0.4.5",
+    "@kilocode/plugin": "7.8.27",
+    "@kilocode/sdk": "7.8.27",
+    "@opentui/core": "0.5.11",
+    "@opentui/keymap": "0.5.11",
+    "@opentui/solid": "0.5.11",
     "@types/node": "24.19.1",
     "@xterm/headless": "6.0.0",
     "concurrently": "10.0.6",
@@ -75,5 +76,6 @@
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org"
-  }
+  },
+  "private": true
 }

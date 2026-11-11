@@ -2,7 +2,7 @@ import type {
   TuiPlugin,
   TuiPluginApi,
   TuiPluginModule,
-} from "@opencode-ai/plugin/tui";
+} from "@kilocode/plugin/tui";
 import { createFixedMenu } from "./fixed-menu.ts";
 import { dialogNavigation } from "./navigation.ts";
 import { previewParts } from "./preview.ts";
@@ -57,7 +57,7 @@ const PromptComposerTui: TuiPlugin = async (api) => {
         return;
       }
       if (response.error !== undefined || agentResponse.error !== undefined) {
-        throw new Error("Could not read loaded prompts from OpenCode.");
+        throw new Error("Could not read loaded prompts from Kilo.");
       }
       const configured = response.data.agent ?? {};
       const loaded = agentResponse.data;
@@ -123,12 +123,17 @@ const PromptComposerTui: TuiPlugin = async (api) => {
           root,
           root ? fixedMenu : undefined,
         );
-      const commands = Object.entries(response.data.command ?? {}).map(
-        ([name, command]) => ({
-          title: `Command: ${name}`,
-          value: `command:${name}`,
-          text: command.template,
-        }),
+      const commands = Object.entries(response.data.command ?? {}).flatMap(
+        ([name, command]) =>
+          typeof command.template === "string"
+            ? [
+                {
+                  title: `Command: ${name}`,
+                  value: `command:${name}`,
+                  text: command.template,
+                },
+              ]
+            : [],
       );
       const view = (title: string, text: string) =>
         navigation.show(

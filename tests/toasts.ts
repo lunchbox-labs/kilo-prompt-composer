@@ -1,4 +1,4 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { PluginInput } from "@kilocode/plugin";
 
 export interface Toast {
   body: { title: string; message: string; variant: string };

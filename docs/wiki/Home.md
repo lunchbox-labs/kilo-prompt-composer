@@ -1,6 +1,6 @@
 # Prompt Composer
 
-Share reusable text across native OpenCode agents, commands and on-demand skills with explicit inline includes. These guides describe the current repository; published packages may differ. Published versions are listed on [npm](https://www.npmjs.com/package/@lunchbox-labs/opencode-prompt-composer?activeTab=versions).
+Share reusable text across native Kilo agents, commands and on-demand skills with explicit inline includes. These guides describe the current repository; published packages may differ. Published versions are listed on [npm](https://www.npmjs.com/package/@lunchbox-labs/kilo-prompt-composer?activeTab=versions).
 
 ## User documentation
 

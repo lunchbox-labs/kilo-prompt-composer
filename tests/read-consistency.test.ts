@@ -30,8 +30,8 @@ async function readBody(
 async function fixture(t: TestContext) {
   const root = await mkdtemp(join(tmpdir(), "prompt-consistency-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  await mkdir(join(root, ".opencode/prompts"), { recursive: true });
-  const snippetPath = join(root, ".opencode/prompts/body.md");
+  await mkdir(join(root, ".kilo/prompts"), { recursive: true });
+  const snippetPath = join(root, ".kilo/prompts/body.md");
   await writeFile(snippetPath, "Original");
   const context = { directory: root, worktree: root };
   const inventory = await discoverPrompts(context);
@@ -71,7 +71,7 @@ test(
 
 test("prompt inventory changes are rejected", async (t) => {
   const f = await fixture(t);
-  await writeFile(join(f.root, ".opencode/prompts/new.md"), "New");
+  await writeFile(join(f.root, ".kilo/prompts/new.md"), "New");
   await assert.rejects(
     verifyInventory(f.context, f.inventory),
     /discovery changed/,
@@ -89,11 +89,11 @@ test(
   { skip: process.platform === "win32" },
   async (t) => {
     const f = await fixture(t);
-    const original = join(f.root, ".opencode/prompts/original.md");
+    const original = join(f.root, ".kilo/prompts/original.md");
     await rename(f.snippetPath, original);
     await symlink(original, f.snippetPath);
     const reads = await readBody(f.inventory);
-    const replacement = join(f.root, ".opencode/prompts/replacement.md");
+    const replacement = join(f.root, ".kilo/prompts/replacement.md");
     await writeFile(replacement, f.reads[0].text);
     await chmod(replacement, f.reads[0].mode);
     await rm(f.snippetPath);
@@ -116,7 +116,7 @@ test("final reads accept the source byte limit and reject growth beyond it", asy
 
 test("verification reports the first changed source in input order", async (t) => {
   const f = await fixture(t);
-  const prompts = join(f.root, ".opencode/prompts");
+  const prompts = join(f.root, ".kilo/prompts");
   const names = ["first.md", "second.md", "third.md"];
   for (const name of names) {
     await writeFile(join(prompts, name), "Original");

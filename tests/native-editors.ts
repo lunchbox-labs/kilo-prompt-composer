@@ -7,7 +7,7 @@ import type {
   TuiPluginApi,
   TuiPluginMeta,
   TuiPluginModule,
-} from "@opencode-ai/plugin/tui";
+} from "@kilocode/plugin/tui";
 import {
   destroyFixedMenu,
   dialogView,

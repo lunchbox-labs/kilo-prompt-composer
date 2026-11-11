@@ -9,4 +9,4 @@ permission:
   list: allow
 ---
 
-Read `.agents/skills/opencode-user-review/SKILL.md` from the repository root and follow it. Report findings without editing files.
+Read `.agents/skills/kilo-user-review/SKILL.md` from the repository root and follow it. Report findings without editing files.

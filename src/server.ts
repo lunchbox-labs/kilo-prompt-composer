@@ -4,7 +4,7 @@ import type {
   Plugin,
   PluginInput,
   PluginModule,
-} from "@opencode-ai/plugin";
+} from "@kilocode/plugin";
 import { diagnosticName } from "./errors.ts";
 import { hasIncludeMarker } from "./include-core.ts";
 import {
