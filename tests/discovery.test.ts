@@ -10,15 +10,18 @@ async function fixture(t: TestContext) {
   const root = await mkdtemp(join(tmpdir(), "prompt-discovery-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const home = join(root, "home");
-  const global = join(root, "config/opencode");
+  const global = join(root, "config/kilo");
   const project = join(root, "project");
   const nested = join(project, "child");
   const custom = join(root, "custom");
   const roots = [
     global,
-    join(nested, ".opencode"),
-    join(project, ".opencode"),
-    join(home, ".opencode"),
+    join(nested, ".kilocode"),
+    join(nested, ".kilo"),
+    join(project, ".kilocode"),
+    join(project, ".kilo"),
+    join(home, ".kilocode"),
+    join(home, ".kilo"),
     custom,
   ];
   for (const dir of roots) {
@@ -27,8 +30,8 @@ async function fixture(t: TestContext) {
   }
   const env = {
     XDG_CONFIG_HOME: join(root, "config"),
-    OPENCODE_TEST_HOME: home,
-    OPENCODE_CONFIG_DIR: custom,
+    KILO_TEST_HOME: home,
+    KILO_CONFIG_DIR: custom,
   };
   return { root, home, global, project, nested, custom, roots, env };
 }
@@ -80,15 +83,15 @@ test("mirrors pinned host root order and later relative-path overrides", async (
 
 test("project disable flag keeps global, home and custom discovery", async (t) => {
   const f = await fixture(t);
-  // OpenCode 1.19.x's Flag.truthy accepts case-insensitive "true" and "1".
+  // Kilo 7.8.27's Flag.truthy accepts case-insensitive "true" and "1".
   for (const value of ["1", "true", "TRUE", "True"]) {
     const result = await discoverPrompts(
       { directory: f.nested, worktree: f.project },
-      { ...f.env, OPENCODE_DISABLE_PROJECT_CONFIG: value },
+      { ...f.env, KILO_DISABLE_PROJECT_CONFIG: value },
     );
     assert.deepEqual(
       result.directories,
-      [f.global, join(f.home, ".opencode"), f.custom],
+      [f.global, join(f.home, ".kilocode"), join(f.home, ".kilo"), f.custom],
       `project discovery disabled by ${value}`,
     );
     assert.equal(
@@ -100,17 +103,17 @@ test("project disable flag keeps global, home and custom discovery", async (t) =
 
 test("deduplicates repeated roots and respects worktree traversal boundary", async (t) => {
   const f = await fixture(t);
-  await mkdir(join(f.root, ".opencode/prompts"), { recursive: true });
-  await writeFile(join(f.root, ".opencode/prompts/outside.md"), "outside");
+  await mkdir(join(f.root, ".kilo/prompts"), { recursive: true });
+  await writeFile(join(f.root, ".kilo/prompts/outside.md"), "outside");
   const result = await discoverPrompts(
     { directory: f.nested, worktree: f.project },
-    { ...f.env, OPENCODE_CONFIG_DIR: f.global },
+    { ...f.env, KILO_CONFIG_DIR: f.global },
   );
   assert.deepEqual(result.directories, f.roots.slice(0, -1));
   assert.equal(result.files.has("outside.md"), false);
   assert.equal(
     result.files.get("review/evidence.md")?.path,
-    join(f.home, ".opencode/prompts/review/evidence.md"),
+    join(f.home, ".kilo/prompts/review/evidence.md"),
   );
 });
 
@@ -127,7 +130,7 @@ test("keeps non-regular prompt names only where no root has a regular file", asy
   );
   assert.equal(
     result.files.get("review/evidence.md")?.path,
-    join(f.home, ".opencode/prompts/review/evidence.md"),
+    join(f.home, ".kilo/prompts/review/evidence.md"),
     "a later directory named like a prompt does not shadow an earlier file",
   );
   assert.equal(
@@ -201,9 +204,9 @@ test("allows exactly 4096 entries and reports the limit before later failures", 
   await mkdir(many, { recursive: true });
   const env = {
     XDG_CONFIG_HOME: join(f.root, "unused"),
-    OPENCODE_TEST_HOME: empty,
-    OPENCODE_CONFIG_DIR: join(f.root, "limit"),
-    OPENCODE_DISABLE_PROJECT_CONFIG: "true",
+    KILO_TEST_HOME: empty,
+    KILO_CONFIG_DIR: join(f.root, "limit"),
+    KILO_DISABLE_PROJECT_CONFIG: "true",
   };
   const discover = () =>
     discoverPrompts({ directory: empty, worktree: empty }, env);
@@ -373,15 +376,15 @@ test("keeps broken prompt-name symlinks as invalid entries and ignores other bro
   assert.equal(result.files.has("area"), false);
   assert.equal(
     result.files.get("review/evidence.md")?.path,
-    join(f.home, ".opencode/prompts/review/evidence.md"),
+    join(f.home, ".kilo/prompts/review/evidence.md"),
     "a later broken link does not shadow an earlier regular file",
   );
 });
 
 test("skips broken prompts roots like absent ones", async (t) => {
   const f = await fixture(t);
-  const dangling = join(f.project, ".opencode/prompts");
-  const looping = join(f.home, ".opencode/prompts");
+  const dangling = join(f.project, ".kilo/prompts");
+  const looping = join(f.home, ".kilo/prompts");
   await rm(dangling, { recursive: true });
   if (!(await createSymlinkOrSkip(t, join(f.root, "missing"), dangling))) {
     return;
@@ -426,7 +429,7 @@ test("discovery resolves a bounded number of entries at a time and stops at the 
   const root = await mkdtemp(join(tmpdir(), "prompt-discovery-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const project = join(root, "project");
-  const prompts = join(project, ".opencode/prompts");
+  const prompts = join(project, ".kilo/prompts");
   // Each enclosing directory lists its subdirectory first, ahead of many
   // files, and the innermost directory alone exceeds the entry limit.
   const middle = join(prompts, "0");
@@ -451,7 +454,7 @@ test("discovery resolves a bounded number of entries at a time and stops at the 
       { directory: project, worktree: project },
       {
         XDG_CONFIG_HOME: join(root, "config"),
-        OPENCODE_TEST_HOME: join(root, "home"),
+        KILO_TEST_HOME: join(root, "home"),
       },
     ),
     /exceeds 4096 entries/,
@@ -474,14 +477,14 @@ test("checks ancestor roots together, keeping root order and the first failure i
   const root = resolve("/");
   const environment = {
     XDG_CONFIG_HOME: join(root, "config"),
-    OPENCODE_TEST_HOME: join(root, "home"),
+    KILO_TEST_HOME: join(root, "home"),
   };
   const context = {
     directory: join(root, "work", "a", "b"),
     worktree: join(root, "work"),
   };
-  const missing = join(root, "work", "a", ".opencode");
-  const nearest = join(root, "work", "a", "b", ".opencode");
+  const missing = join(root, "work", "a", ".kilo");
+  const nearest = join(root, "work", "a", "b", ".kilo");
   const started: string[] = [];
   let release!: () => void;
   const gate = new Promise<void>((resolve) => (release = resolve));
@@ -497,7 +500,7 @@ test("checks ancestor roots together, keeping root order and the first failure i
   // Every check starts before any completes; later roots answer first.
   const present = async (path: string): Promise<boolean> => {
     started.push(path);
-    if (started.length === 4) {
+    if (started.length === 8) {
       release();
     }
     await Promise.race([gate, sequential]);
@@ -507,10 +510,14 @@ test("checks ancestor roots together, keeping root order and the first failure i
     return path !== missing;
   };
   assert.deepEqual(await discoveryDirectories(context, environment, present), [
-    join(root, "config", "opencode"),
+    join(root, "config", "kilo"),
+    join(root, "work", "a", "b", ".kilocode"),
     nearest,
-    join(root, "work", ".opencode"),
-    join(root, "home", ".opencode"),
+    join(root, "work", "a", ".kilocode"),
+    join(root, "work", ".kilocode"),
+    join(root, "work", ".kilo"),
+    join(root, "home", ".kilocode"),
+    join(root, "home", ".kilo"),
   ]);
 
   const failing = async (path: string): Promise<boolean> => {
@@ -518,7 +525,7 @@ test("checks ancestor roots together, keeping root order and the first failure i
     await new Promise((resolve) =>
       setTimeout(resolve, path === nearest ? 20 : 0),
     );
-    if (path === nearest || path === join(root, "home", ".opencode")) {
+    if (path === nearest || path === join(root, "home", ".kilo")) {
       throw new Error(`denied ${path}`);
     }
     return true;
@@ -532,7 +539,7 @@ test("checks ancestor roots together, keeping root order and the first failure i
 test("reports the ancestor limit only after every checked ancestor succeeds", async () => {
   const environment = {
     XDG_CONFIG_HOME: "/config",
-    OPENCODE_TEST_HOME: "/home",
+    KILO_TEST_HOME: "/home",
   };
   const directory = `/${Array.from({ length: 300 }, (_, index) => `d${index}`).join("/")}`;
   const context = { directory, worktree: "/" };
@@ -545,10 +552,10 @@ test("reports the ancestor limit only after every checked ancestor succeeds", as
     discoveryDirectories(context, environment, present),
     /ancestor-directory limit/,
   );
-  assert.equal(checked.length, 256);
-  assert.ok(!checked.includes(join("/home", ".opencode")));
+  assert.equal(checked.length, 512);
+  assert.ok(!checked.includes(join("/home", ".kilo")));
 
-  const last = checked[255];
+  const last = checked[511];
   const failing = (path: string): Promise<boolean> =>
     path === last
       ? Promise.reject(new Error(`denied ${path}`))
@@ -630,7 +637,7 @@ test("lenient discovery treats a prompts file as absent and reports unreadable d
   );
   assert.equal(
     result.files.get("review/evidence.md")?.root,
-    join(f.home, ".opencode/prompts"),
+    join(f.home, ".kilo/prompts"),
     "the last readable root still wins",
   );
   assert.deepEqual(warnings, [
@@ -645,9 +652,9 @@ test("lenient discovery stops at the entry limit with what it found", async (t) 
   await mkdir(many, { recursive: true });
   const env = {
     XDG_CONFIG_HOME: join(f.root, "unused"),
-    OPENCODE_TEST_HOME: empty,
-    OPENCODE_CONFIG_DIR: join(f.root, "limit"),
-    OPENCODE_DISABLE_PROJECT_CONFIG: "true",
+    KILO_TEST_HOME: empty,
+    KILO_CONFIG_DIR: join(f.root, "limit"),
+    KILO_DISABLE_PROJECT_CONFIG: "true",
   };
   const files = 4100;
   for (let start = 0; start < files; start += 512) {
@@ -672,4 +679,29 @@ test("lenient discovery stops at the entry limit with what it found", async (t) 
   assert.deepEqual(warnings, [
     "The prompts directories have more than 4096 entries; later entries were ignored.",
   ]);
+});
+
+test("ignores OpenCode roots and environment overrides", async (t) => {
+  const f = await fixture(t);
+  const legacy = join(f.root, "legacy");
+  for (const directory of [
+    join(f.root, "config/opencode"),
+    join(f.project, ".opencode"),
+    join(f.home, ".opencode"),
+    legacy,
+  ]) {
+    await mkdir(join(directory, "prompts"), { recursive: true });
+    await writeFile(join(directory, "prompts/legacy.md"), "Do not load");
+  }
+  const result = await discoverPrompts(
+    { directory: f.nested, worktree: f.project },
+    {
+      ...f.env,
+      OPENCODE_CONFIG_DIR: legacy,
+      OPENCODE_DISABLE_PROJECT_CONFIG: "true",
+      OPENCODE_TEST_HOME: legacy,
+    },
+  );
+  assert.deepEqual(result.directories, f.roots);
+  assert.equal(result.files.has("legacy.md"), false);
 });

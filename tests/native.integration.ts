@@ -72,12 +72,13 @@ test(
       XDG_DATA_HOME: join(root, "data"),
       XDG_STATE_HOME: join(root, "state"),
       XDG_CACHE_HOME: join(root, "cache"),
-      OPENCODE_TEST_HOME: root,
-      OPENCODE_DB: join(root, "db.sqlite"),
-      OPENCODE_DISABLE_AUTOUPDATE: "1",
-      OPENCODE_DISABLE_MODELS_FETCH: "1",
-      OPENCODE_DISABLE_DEFAULT_PLUGINS: "true",
-      OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER: "true",
+      KILO_TEST_HOME: root,
+      KILO_TELEMETRY_LEVEL: "off",
+      KILO_DB: join(root, "db.sqlite"),
+      KILO_DISABLE_AUTOUPDATE: "1",
+      KILO_DISABLE_MODELS_FETCH: "1",
+      KILO_DISABLE_DEFAULT_PLUGINS: "true",
+      KILO_EXPERIMENTAL_DISABLE_FILEWATCHER: "true",
       NO_PROXY: "localhost,127.0.0.1,::1",
       no_proxy: "localhost,127.0.0.1,::1",
     });
@@ -89,7 +90,7 @@ test(
       npm_config_cache: env.npm_config_cache,
     };
     const testSupport = JSON.parse(
-      await readFile(new URL("./opencode.json", import.meta.url), "utf8"),
+      await readFile(new URL("./kilo.json", import.meta.url), "utf8"),
     ) as { range: string; floor: string };
     const range = testSupport.range;
     verifyNativeVersion(testSupport.floor, range);
@@ -100,17 +101,17 @@ test(
       env: installEnv,
       signal: t.signal,
       requested:
-        process.env.OPENCODE_TEST_VERSION === "floor"
+        process.env.KILO_TEST_VERSION === "floor"
           ? testSupport.floor
-          : process.env.OPENCODE_TEST_VERSION,
+          : process.env.KILO_TEST_VERSION,
     });
     t.diagnostic(
-      `Native OpenCode ${version}; tested OpenCode range=${range}; lane=${process.env.OPENCODE_TEST_VERSION ?? "latest-compatible"}`,
+      `Native Kilo ${version}; tested Kilo range=${range}; lane=${process.env.KILO_TEST_VERSION ?? "latest-compatible"}`,
     );
     const name =
       process.platform === "win32"
-        ? "opencode-windows-x64"
-        : "opencode-linux-x64";
+        ? "@kilocode/cli-windows-x64"
+        : "@kilocode/cli-linux-x64";
     // Install the exact canonical release into a fresh prefix. Missing platform
     // artifacts are failures; never silently fall back to an older host.
     await execute(
@@ -131,7 +132,7 @@ test(
       "host/node_modules",
       name,
       "bin",
-      process.platform === "win32" ? "opencode.exe" : "opencode",
+      process.platform === "win32" ? "kilo.exe" : "kilo",
     );
     const actual = (
       await execute(binary, ["--version"], {
@@ -165,15 +166,15 @@ test(
     );
     const plugin = join(
       install,
-      "node_modules/@lunchbox-labs/opencode-prompt-composer",
+      "node_modules/@lunchbox-labs/kilo-prompt-composer",
     );
     const project = join(root, "project");
-    const shared = join(root, "config/opencode");
+    const shared = join(root, "config/kilo");
     for (const path of [
-      join(project, ".opencode/prompts/review"),
-      join(project, ".opencode/agents"),
-      join(project, ".opencode/commands"),
-      join(project, ".opencode/skills/evidence"),
+      join(project, ".kilo/prompts/review"),
+      join(project, ".kilo/agents"),
+      join(project, ".kilo/commands"),
+      join(project, ".kilo/skills/evidence"),
       join(shared, "prompts/review"),
       join(shared, "prompts/personal"),
     ]) {
@@ -181,22 +182,22 @@ test(
     }
     await writeFile(join(shared, "prompts/review/body.md"), "Shared");
     await writeFile(
-      join(project, ".opencode/prompts/review/body.md"),
+      join(project, ".kilo/prompts/review/body.md"),
       "Project {{include:review/nested.txt}}",
     );
     await writeFile(
-      join(project, ".opencode/prompts/review/nested.txt"),
+      join(project, ".kilo/prompts/review/nested.txt"),
       "evidence",
     );
-    const skillOnlyPath = join(project, ".opencode/prompts/review/skill.txt");
-    const deletedPath = join(project, ".opencode/prompts/review/deleted.txt");
+    const skillOnlyPath = join(project, ".kilo/prompts/review/skill.txt");
+    const deletedPath = join(project, ".kilo/prompts/review/deleted.txt");
     await writeFile(skillOnlyPath, "Skill-only original");
     await writeFile(deletedPath, "Deleted original");
     await writeFile(
       join(shared, "prompts/review/override.txt"),
       "Global original",
     );
-    const agentPath = join(project, ".opencode/agents/review.md");
+    const agentPath = join(project, ".kilo/agents/review.md");
     // The project agent offers optional personal guidance from the global
     // prompts directory. The snippet is added only before the host restarts.
     const personalPath = join(shared, "prompts/personal/review.md");
@@ -204,19 +205,19 @@ test(
       "Use evidence.\n\nReview {{include:review/body.md}}\n\nState uncertainty.\n{{include?:personal/review.md}}";
     const agentText = `---\ndescription: Review changes\nmode: primary\n---\n${agentBody}`;
     await writeFile(agentPath, agentText);
-    const helperPath = join(project, ".opencode/agents/helper.md");
+    const helperPath = join(project, ".kilo/agents/helper.md");
     const helperText =
       "---\ndescription: Optional helper\nmode: subagent\ndisable: true\n---\nHelp {{include:review/body.md}}\n\nState uncertainty.\n\nHelper rule.";
     await writeFile(helperPath, helperText);
-    const buildPath = join(project, ".opencode/agents/build.md");
+    const buildPath = join(project, ".kilo/agents/build.md");
     const buildText =
       "---\ndescription: Custom build instructions\nmode: primary\n---\nBuild override {{include:review/body.md}}";
     await writeFile(buildPath, buildText);
     await writeFile(
-      join(project, ".opencode/commands/check.md"),
+      join(project, ".kilo/commands/check.md"),
       "---\ndescription: Native command\nagent: review\nsubtask: true\n---\nCheck {{include:review/body.md}} $ARGUMENTS \\{{include:literal.md}}",
     );
-    const skillDirectory = join(project, ".opencode/skills/evidence");
+    const skillDirectory = join(project, ".kilo/skills/evidence");
     const skillBody = [
       "Skill {{include:review/body.md}}",
       "{{include:review/skill.txt}}",
@@ -233,7 +234,7 @@ test(
       process.platform === "win32" ? "reference.txt" : "{{include:wrapper.md}}",
     );
     await writeFile(skillFile, "Sampled filename, not prompt content.");
-    const obsoletePath = join(project, ".opencode/prompt-composer.jsonc");
+    const obsoletePath = join(project, ".kilo/prompt-composer.jsonc");
     const obsoleteText = "{ malformed obsolete policy: ignored";
     await writeFile(obsoletePath, obsoleteText);
     const tarball = await readFile(join(root, filename));
@@ -326,10 +327,12 @@ test(
     const plugins =
       configPlugin === undefined ? [npmPlugin] : [configPlugin, npmPlugin];
     await writeFile(
-      join(shared, "opencode.jsonc"),
+      join(shared, "kilo.jsonc"),
       JSON.stringify({
         plugin: plugins,
         model: "fixture/model",
+        small_model: "fixture/model",
+        enabled_providers: ["fixture"],
         default_agent: "review",
         provider: {
           fixture: {
@@ -352,7 +355,7 @@ test(
     );
     if (configPlugin !== undefined) {
       await writeFile(
-        join(project, ".opencode/config-composer.jsonc"),
+        join(project, ".kilo/config-composer.jsonc"),
         JSON.stringify({
           componentGroups: { review: { agents: ["review"] } },
           profiles: {
@@ -373,7 +376,7 @@ test(
     }
     // Match the native test harness: preinstall the genuine pinned SDK in each
     // config directory, avoiding platform-dependent cold dependency bootstrap.
-    for (const directory of [shared, join(project, ".opencode")]) {
+    for (const directory of [shared, join(project, ".kilo")]) {
       await writeFile(
         join(directory, "package.json"),
         JSON.stringify({ private: true, type: "module" }),
@@ -389,7 +392,7 @@ test(
           "--no-audit",
           "--no-fund",
           "--save-exact",
-          `@opencode-ai/plugin@${version}`,
+          `@kilocode/plugin@${version}`,
         ],
         { cwd: directory, env: installEnv, timeout: 120_000, signal: t.signal },
       );
@@ -451,11 +454,11 @@ test(
           break;
         }
         if (child.exitCode !== null) {
-          throw new Error(`OpenCode exited: ${logs}`);
+          throw new Error(`Kilo exited: ${logs}`);
         }
         await setTimeout(100);
       }
-      assert.ok(url !== undefined, `OpenCode did not start: ${logs}`);
+      assert.ok(url !== undefined, `Kilo did not start: ${logs}`);
     }
     await startHost();
     async function api(path: string, body?: unknown): Promise<unknown> {
@@ -463,7 +466,7 @@ test(
         method: body === undefined ? "GET" : "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-opencode-directory": project,
+          "x-kilo-directory": project,
         },
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: AbortSignal.any([t.signal, AbortSignal.timeout(60_000)]),
@@ -490,7 +493,7 @@ test(
       const stop = new AbortController();
       t.after(() => stop.abort());
       const response = await fetch(`${url}/event`, {
-        headers: { "x-opencode-directory": project },
+        headers: { "x-kilo-directory": project },
         signal: AbortSignal.any([t.signal, stop.signal]),
       });
       assert.ok(response.ok && response.body !== null, logs);
@@ -584,7 +587,7 @@ test(
       "Check Project evidence $ARGUMENTS {{include:literal.md}}",
     );
     assert.equal(config.command.check.subtask, true);
-    // OpenCode derives skill commands after config hooks, directly from cached
+    // Kilo derives skill commands after config hooks, directly from cached
     // skill content. They do not pass through the skill tool's after hook.
     assert.equal(config.command.evidence, undefined);
     const nativeCommands = (await api("/command")) as {
@@ -656,17 +659,17 @@ test(
     // The first skill-tool invocation happens only after these edits. Config
     // loading must already have captured snippets unused by agents/commands.
     await writeFile(
-      join(project, ".opencode/prompts/review/nested.txt"),
+      join(project, ".kilo/prompts/review/nested.txt"),
       "updated",
     );
     await writeFile(skillOnlyPath, "Skill-only updated");
     await rm(deletedPath);
     await writeFile(
-      join(project, ".opencode/prompts/review/override.txt"),
+      join(project, ".kilo/prompts/review/override.txt"),
       "Project added",
     );
     await writeFile(
-      join(project, ".opencode/prompts/literal.md"),
+      join(project, ".kilo/prompts/literal.md"),
       "An escaped marker must never expand twice.",
     );
     const subsequent = (await api("/config")) as typeof config;
@@ -766,7 +769,7 @@ test(
     );
     assert.equal(await readFile(obsoletePath, "utf8"), obsoleteText);
     if (configPlugin !== undefined) {
-      const profilePath = join(project, ".opencode/config-composer.jsonc");
+      const profilePath = join(project, ".kilo/config-composer.jsonc");
       const profile = JSON.parse(await readFile(profilePath, "utf8")) as {
         activeProfiles: string[];
       };
@@ -853,7 +856,7 @@ test(
     await writeFile(agentPath, agentText);
     await writeFile(personalPath, "  Personal review guidance.\n");
     for (const [name, text] of Object.entries(viewerCommands)) {
-      await writeFile(join(project, ".opencode/commands", name), text);
+      await writeFile(join(project, ".kilo/commands", name), text);
     }
     const restartedSkillText = changedSkillText.replace(
       "{{include:review/deleted.txt}}\n",

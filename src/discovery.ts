@@ -93,20 +93,20 @@ export function projectDiscoveryEnabled(
   environment: NodeJS.ProcessEnv = process.env,
 ): boolean {
   return !["true", "1"].includes(
-    environment.OPENCODE_DISABLE_PROJECT_CONFIG?.toLowerCase() ?? "",
+    environment.KILO_DISABLE_PROJECT_CONFIG?.toLowerCase() ?? "",
   );
 }
 
-/** Mirrors ConfigPaths.directories in OpenCode 1.19.0 through 1.19.5; environment is injectable for isolated tests. */
+/** Mirrors ConfigPaths.directories in Kilo 7.8.27; environment is injectable for isolated tests. */
 export async function discoveryDirectories(
   context: DiscoveryContext,
   environment: NodeJS.ProcessEnv = process.env,
   pathExists: (path: string) => Promise<boolean> = exists,
 ): Promise<string[]> {
-  const xdg = environment.XDG_CONFIG_HOME;
+  const xdg = environment.XDG_CONFIG_HOME?.replace(/[\r\n]+/g, "");
   const global = join(
     xdg !== undefined && isAbsolute(xdg) ? xdg : join(homedir(), ".config"),
-    "opencode",
+    "kilo",
   );
   const ancestors: string[] = [];
   let limited = false;
@@ -122,17 +122,18 @@ export async function discoveryDirectories(
         limited = true;
         break;
       }
-      ancestors.push(join(current, ".opencode"));
+      ancestors.push(join(current, ".kilocode"), join(current, ".kilo"));
       if (current === stop || dirname(current) === current) {
         break;
       }
     }
   }
-  const home = join(environment.OPENCODE_TEST_HOME ?? homedir(), ".opencode");
+  const home = (environment.KILO_TEST_HOME ?? homedir()).trim();
+  const homes = [join(home, ".kilocode"), join(home, ".kilo")];
   // The existence checks are independent. Run them together; the earliest
   // failure in path order is reported, as checking in sequence would.
   const present = await mapBounded(
-    limited ? ancestors : [...ancestors, home],
+    limited ? ancestors : [...ancestors, ...homes],
     pathExists,
   );
   if (limited) {
@@ -144,14 +145,14 @@ export async function discoveryDirectories(
     global,
     ...ancestors.filter((_, index) => present[index]),
   ];
-  if (present[ancestors.length]) {
-    directories.push(home);
-  }
+  directories.push(
+    ...homes.filter((_, index) => present[ancestors.length + index]),
+  );
   if (
-    environment.OPENCODE_CONFIG_DIR !== undefined &&
-    environment.OPENCODE_CONFIG_DIR !== ""
+    environment.KILO_CONFIG_DIR !== undefined &&
+    environment.KILO_CONFIG_DIR !== ""
   ) {
-    directories.push(resolve(environment.OPENCODE_CONFIG_DIR));
+    directories.push(resolve(environment.KILO_CONFIG_DIR));
   }
   return [...new Set(directories)];
 }

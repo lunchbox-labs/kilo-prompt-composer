@@ -49,14 +49,18 @@ test(
 
     for (const path of [
       "README.md",
+      "docs/wiki/Developer.md",
+      "docs/wiki/Discovery.md",
+      "docs/wiki/Home.md",
+      "docs/wiki/Usage.md",
       "docs/examples/review/README.md",
-      "docs/examples/review/.opencode/agents/review.md",
-      "docs/examples/review/.opencode/commands/check.md",
-      "docs/examples/review/.opencode/prompts/review/context.md",
-      "docs/examples/review/.opencode/prompts/review/findings.md",
+      "docs/examples/review/.kilo/agents/review.md",
+      "docs/examples/review/.kilo/commands/check.md",
+      "docs/examples/review/.kilo/prompts/review/context.md",
+      "docs/examples/review/.kilo/prompts/review/findings.md",
       "docs/examples/skill-guidance/README.md",
-      "docs/examples/skill-guidance/.opencode/skills/verification/SKILL.md",
-      "docs/examples/skill-guidance/.opencode/prompts/verification.md",
+      "docs/examples/skill-guidance/.kilo/skills/verification/SKILL.md",
+      "docs/examples/skill-guidance/.kilo/prompts/verification.md",
     ]) {
       assert.ok(
         files.some((file) => file.path === path),
@@ -82,26 +86,23 @@ test(
         "--no-audit",
         "--no-fund",
         join(root, filename),
-        `@opencode-ai/plugin@${devDependencies["@opencode-ai/plugin"]}`,
+        `@kilocode/plugin@${devDependencies["@kilocode/plugin"]}`,
         `@types/node@${devDependencies["@types/node"]}`,
       ],
       { timeout: 120_000, signal: t.signal },
     );
     const project = join(root, "project");
-    await mkdir(join(project, ".opencode/prompts"), { recursive: true });
-    await writeFile(
-      join(project, ".opencode/prompts/rules.md"),
-      "Packed rules",
-    );
+    await mkdir(join(project, ".kilo/prompts"), { recursive: true });
+    await writeFile(join(project, ".kilo/prompts/rules.md"), "Packed rules");
     await writeFile(
       join(root, "consumer.mjs"),
       `import assert from 'node:assert/strict';
 import { dialogView, fixedMenuApi } from ${JSON.stringify(pathToFileURL(resolve("tests/fixed-menu-harness.ts")).href)};
-import plugin from '@lunchbox-labs/opencode-prompt-composer';
-import tui from '@lunchbox-labs/opencode-prompt-composer/tui';
+import plugin from '@lunchbox-labs/kilo-prompt-composer';
+import tui from '@lunchbox-labs/kilo-prompt-composer/tui';
 assert.equal(tui.id, 'prompt-composer');
 for (const name of ['editor', 'settings', 'schema.json']) {
-  await assert.rejects(import('@lunchbox-labs/opencode-prompt-composer/' + name), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' });
+  await assert.rejects(import('@lunchbox-labs/kilo-prompt-composer/' + name), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' });
 }
 const hooks = await plugin.server({ directory: process.argv[2], worktree: process.argv[2] });
 const config = { agent: { review: { prompt: '{{include:rules.md}}' } }, command: { check: { template: '{{include:rules.md}} $ARGUMENTS $1 !touch', subtask: true } } };
@@ -149,8 +150,8 @@ assert.deepEqual(config, before);
     });
     await writeFile(
       join(root, "consumer.mts"),
-      `import plugin from '@lunchbox-labs/opencode-prompt-composer';
-import { expandIncludes } from '@lunchbox-labs/opencode-prompt-composer/includes';
+      `import plugin from '@lunchbox-labs/kilo-prompt-composer';
+import { expandIncludes } from '@lunchbox-labs/kilo-prompt-composer/includes';
 const id: string = plugin.id;
 await expandIncludes('body', new Map());
 // @ts-expect-error -- A discovered-file registry cannot be replaced by a string.
@@ -177,15 +178,15 @@ console.log(id);
       await readFile(
         join(
           root,
-          "node_modules/@lunchbox-labs/opencode-prompt-composer/package.json",
+          "node_modules/@lunchbox-labs/kilo-prompt-composer/package.json",
         ),
         "utf8",
       ),
     ) as Record<string, Record<string, string> | undefined>;
     assert.deepEqual(manifest.dependencies ?? {}, {});
-    assert.equal(Object.hasOwn(manifest.engines ?? {}, "opencode"), false);
+    assert.equal(Object.hasOwn(manifest.engines ?? {}, "kilo"), false);
     assert.equal(manifest.engines?.node, ">=22.18.0");
-    assert.ok(!files.some((file) => file.path === "tests/opencode.json"));
+    assert.ok(!files.some((file) => file.path === "tests/kilo.json"));
     for (const field of [
       "dependencies",
       "optionalDependencies",

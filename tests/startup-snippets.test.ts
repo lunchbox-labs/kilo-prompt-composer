@@ -14,14 +14,14 @@ import { syncBuiltinESMExports } from "node:module";
 import { basename, dirname, join } from "node:path";
 import { type TestContext, test } from "node:test";
 import { promisify } from "node:util";
-import type { Config, PluginInput } from "@opencode-ai/plugin";
+import type { Config, PluginInput } from "@kilocode/plugin";
 import server from "../src/server.ts";
 import { recordingToasts } from "./toasts.ts";
 
 async function fixture(t: TestContext) {
   const root = await mkdtemp(join(tmpdir(), "prompt-startup-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const directory = join(root, ".opencode/prompts");
+  const directory = join(root, ".kilo/prompts");
   await mkdir(directory, { recursive: true });
   return {
     root,
@@ -407,8 +407,8 @@ test("normalized project contexts reuse startup discovery environment", async (t
   await writeFile(join(f.directory, "body.md"), "Startup project");
   const hooks = await server.server(f.context);
   await hooks.config!({});
-  const previous = process.env.OPENCODE_CONFIG_DIR;
-  process.env.OPENCODE_CONFIG_DIR = join(f.root, "custom");
+  const previous = process.env.KILO_CONFIG_DIR;
+  process.env.KILO_CONFIG_DIR = join(f.root, "custom");
   try {
     const next = await server.server({
       ...f.context,
@@ -419,9 +419,9 @@ test("normalized project contexts reuse startup discovery environment", async (t
     assert.equal(current.agent!.review!.prompt, "Review Startup project");
   } finally {
     if (previous === undefined) {
-      delete process.env.OPENCODE_CONFIG_DIR;
+      delete process.env.KILO_CONFIG_DIR;
     } else {
-      process.env.OPENCODE_CONFIG_DIR = previous;
+      process.env.KILO_CONFIG_DIR = previous;
     }
   }
 });
@@ -479,7 +479,7 @@ test(
 test("a capture that fails keeps native text and is retried by the next plugin instance", async (t) => {
   const f = await fixture(t);
   await writeFile(join(f.directory, "body.md"), "Body");
-  const ancestor = join(f.root, ".opencode");
+  const ancestor = join(f.root, ".kilo");
   const lstat = fs.lstat;
   let failing = true;
   t.mock.method(fs, "lstat", async (...args: Parameters<typeof lstat>) => {
@@ -646,7 +646,7 @@ test("a snippet replaced on every read is left out with restart advice", async (
   const { message } = toasts[0].body;
   assert.match(
     message,
-    /A prompt snippet kept changing while loading\. Restart OpenCode once edits settle\./,
+    /A prompt snippet kept changing while loading\. Restart Kilo once edits settle\./,
   );
   assert.match(
     message,
@@ -682,7 +682,7 @@ test("a snippet replaced whenever its read is confirmed keeps the latest read wi
   assert.equal(toasts.length, 1);
   assert.match(
     toasts[0].body.message,
-    /^Prompt files could not be confirmed unchanged after 3 reads, so the latest reads are used\. Restart OpenCode once edits settle\. A prompt source changed while loading\. Source: /,
+    /^Prompt files could not be confirmed unchanged after 3 reads, so the latest reads are used\. Restart Kilo once edits settle\. A prompt source changed while loading\. Source: /,
   );
   assert.doesNotMatch(toasts[0].body.message, /Try again/);
 });
@@ -719,7 +719,7 @@ test("startup publishes the latest reads with a warning when snippets keep chang
   assert.equal(toasts[0].body.variant, "warning");
   assert.match(
     toasts[0].body.message,
-    /^Prompt files could not be confirmed unchanged after 3 reads, so the latest reads are used\. Restart OpenCode once edits settle\. Prompt input changed: .*[^.]\.$/,
+    /^Prompt files could not be confirmed unchanged after 3 reads, so the latest reads are used\. Restart Kilo once edits settle\. Prompt input changed: .*[^.]\.$/,
   );
 });
 
@@ -811,9 +811,9 @@ for (let index = 0; index < 800; index++) {
         env: {
           ...process.env,
           XDG_CONFIG_HOME: join(f.root, "config"),
-          OPENCODE_TEST_HOME: f.root,
-          OPENCODE_CONFIG_DIR: "",
-          OPENCODE_DISABLE_PROJECT_CONFIG: "false",
+          KILO_TEST_HOME: f.root,
+          KILO_CONFIG_DIR: "",
+          KILO_DISABLE_PROJECT_CONFIG: "false",
         },
       },
     );
@@ -845,6 +845,27 @@ test(
       toasts[0].body.message,
       /^Some includes were not expanded in agent "review"\. Prompt "missing\.md" does not exist/,
     );
-    assert.match(toasts[0].body.message, /See the OpenCode log for 9 more\./);
+    assert.match(toasts[0].body.message, /See the Kilo log for 9 more\./);
   },
 );
+
+test("startup matches Kilo's whitespace-normalized home", async (t) => {
+  const f = await fixture(t);
+  const home = join(f.root, "home");
+  await mkdir(join(home, ".kilo/prompts"), { recursive: true });
+  await writeFile(join(home, ".kilo/prompts/body.md"), "Home body");
+  const previous = process.env.KILO_TEST_HOME;
+  process.env.KILO_TEST_HOME = `  ${home}\n`;
+  try {
+    const hooks = await server.server(f.context);
+    const current = config();
+    await hooks.config!(current);
+    assert.equal(current.agent!.review!.prompt, "Review Home body");
+  } finally {
+    if (previous === undefined) {
+      delete process.env.KILO_TEST_HOME;
+    } else {
+      process.env.KILO_TEST_HOME = previous;
+    }
+  }
+});

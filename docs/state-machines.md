@@ -2,15 +2,15 @@
 
 This document describes the state Prompt Composer keeps across hooks, events and reloads. Update it in the same PR as any change to these states, their triggers or their exits, following the [state machine conventions](https://github.com/lunchbox-labs/.github/blob/main/agent-guidance/state-machines.md), and cover each transition you add or change in `tests/`. Known bugs belong in issues, not here.
 
-OpenCode reruns the server plugin's factory on every instance load but keeps the imported module, so module-level state lasts for the process and closure state is rebuilt on each reload.
+Kilo reruns the server plugin's factory on every instance load but keeps the imported module, so module-level state lasts for the process and closure state is rebuilt on each reload.
 
 ## Snippet capture cache
 
-`snapshots` in `src/startup-snippets.ts` maps each resolved directory and worktree pair to the promise of its capture. `startupSnippets` returns the existing promise for a key, so every factory for the same project shares one capture until OpenCode restarts.
+`snapshots` in `src/startup-snippets.ts` maps each resolved directory and worktree pair to the promise of its capture. `startupSnippets` returns the existing promise for a key, so every factory for the same project shares one capture until Kilo restarts.
 
 - The first factory for a key starts `capture()`.
 - A capture that resolves, with or without warnings, is kept for the rest of the process.
-- A capture that rejects, which in practice means `discoveryDirectories` failed (the ancestor limit, or an unexpected `lstat` error on a `.opencode` directory), is evicted so a later factory captures again. Every factory that received the promise while it was pending keeps the rejection, so its config hooks keep the native prompts with an error toast until the next reload.
+- A capture that rejects, which in practice means `discoveryDirectories` failed (the ancestor limit, or an unexpected `lstat` error on a `.kilo` directory), is evicted so a later factory captures again. Every factory that received the promise while it was pending keeps the rejection, so its config hooks keep the native prompts with an error toast until the next reload.
 
 ```mermaid
 stateDiagram-v2
@@ -31,7 +31,7 @@ stateDiagram-v2
 - Failed reads are then read again, as when an editor was saving the file mid-read. A read that failed because the file was replaced between being checked and opened is always a change; any other failed read is a change when it now succeeds or fails with a different message. A failure that repeats unchanged, such as an invalid or unreadable file, is kept.
 - The inventory is discovered again; a different set of discovered directories, names or paths is a change.
 
-A change starts another attempt. On the last attempt the latest reads are kept with a warning to restart OpenCode once edits settle. The result is frozen inside the `expand` closure, and an error entry is thrown again each time an include uses it; an entry for a file that was still being replaced says to restart OpenCode once edits settle, since every later hook reuses the capture.
+A change starts another attempt. On the last attempt the latest reads are kept with a warning to restart Kilo once edits settle. The result is frozen inside the `expand` closure, and an error entry is thrown again each time an include uses it; an entry for a file that was still being replaced says to restart Kilo once edits settle, since every later hook reuses the capture.
 
 ```mermaid
 stateDiagram-v2

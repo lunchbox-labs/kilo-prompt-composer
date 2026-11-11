@@ -21,7 +21,7 @@ export function verifyNativeVersion(
 ): void {
   assert.ok(
     semver.validRange(range) !== null,
-    `Invalid tested OpenCode range: ${range}`,
+    `Invalid tested Kilo range: ${range}`,
   );
   assert.equal(
     semver.valid(version),
@@ -30,7 +30,7 @@ export function verifyNativeVersion(
   );
   assert.ok(
     semver.satisfies(version, range),
-    `OpenCode ${version} does not satisfy tested OpenCode range ${range}`,
+    `Kilo ${version} does not satisfy tested Kilo range ${range}`,
   );
   if (actual !== undefined) {
     assert.equal(
@@ -51,7 +51,7 @@ export async function resolveNativeVersion(options: {
 }): Promise<string> {
   assert.ok(
     semver.validRange(options.range) !== null,
-    `Invalid tested OpenCode range: ${options.range}`,
+    `Invalid tested Kilo range: ${options.range}`,
   );
   if (
     options.requested !== undefined &&
@@ -71,7 +71,7 @@ export async function resolveNativeVersion(options: {
       [
         options.npm,
         "view",
-        `opencode-ai@${options.range}`,
+        `@kilocode/cli@${options.range}`,
         "version",
         "--json",
         "--prefer-online",
@@ -93,7 +93,7 @@ export async function resolveNativeVersion(options: {
     const version = semver.maxSatisfying(versions, options.range);
     assert.ok(
       version !== null,
-      `No compatible OpenCode release for ${options.range}`,
+      `No compatible Kilo release for ${options.range}`,
     );
     verifyNativeVersion(version, options.range);
     return version;

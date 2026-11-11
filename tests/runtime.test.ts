@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { type TestContext, test } from "node:test";
-import type { Config, Hooks, PluginInput } from "@opencode-ai/plugin";
+import type { Config, Hooks, PluginInput } from "@kilocode/plugin";
 import { discoverPrompts } from "../src/discovery.ts";
 import { expandWithReader } from "../src/include-core.ts";
 import { expandIncludes } from "../src/includes.ts";
@@ -14,7 +14,7 @@ import { recordingToasts } from "./toasts.ts";
 async function fixture(t: TestContext) {
   const root = await mkdtemp(join(tmpdir(), "prompt-runtime-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  await mkdir(join(root, ".opencode/prompts"), { recursive: true });
+  await mkdir(join(root, ".kilo/prompts"), { recursive: true });
   return { root, context: { directory: root, worktree: root } };
 }
 
@@ -46,7 +46,7 @@ function skillOutput(
 
 test("native bodies expand explicit includes without settings or metadata changes", async (t) => {
   const { root, context } = await fixture(t);
-  await writeFile(join(root, ".opencode/prompts/body.md"), "  Evidence\n");
+  await writeFile(join(root, ".kilo/prompts/body.md"), "  Evidence\n");
   const native: Config = {
     agent: {
       review: {
@@ -84,8 +84,8 @@ test("native bodies expand explicit includes without settings or metadata change
 
 test("obsolete policy files are ignored even when malformed, unsafe or non-files", async (t) => {
   const { root, context } = await fixture(t);
-  await writeFile(join(root, ".opencode/prompts/body.md"), "Evidence");
-  const path = join(root, ".opencode/prompt-composer.jsonc");
+  await writeFile(join(root, ".kilo/prompts/body.md"), "Evidence");
+  const path = join(root, ".kilo/prompt-composer.jsonc");
   const hooks = await server.server(context as PluginInput);
   for (const text of [
     "{ invalid",
@@ -142,8 +142,8 @@ test("marker-free native bodies above the include budget are preserved", async (
 
 test("a failing include is left out of its consumer while every other consumer composes", async (t) => {
   const { root, context } = await fixture(t);
-  await writeFile(join(root, ".opencode/prompts/body.md"), "First");
-  await writeFile(join(root, ".opencode/prompts/command.md"), "Command");
+  await writeFile(join(root, ".kilo/prompts/body.md"), "First");
+  await writeFile(join(root, ".kilo/prompts/command.md"), "Command");
   const hooks = await server.server(context as PluginInput);
   const config: Config = {
     agent: { review: { prompt: "{{include:body.md}}" } },
@@ -153,7 +153,7 @@ test("a failing include is left out of its consumer while every other consumer c
   assert.equal(config.agent!.review!.prompt, "First");
   assert.equal(config.command!.check.template, "Check []");
   await writeFile(
-    join(root, ".opencode/prompts/missing.md"),
+    join(root, ".kilo/prompts/missing.md"),
     "Added after startup",
   );
   await hooks.config!(config);
@@ -167,15 +167,15 @@ test("a failing include is left out of its consumer while every other consumer c
   assert.equal(config.agent!.review!.prompt, "First");
   assert.equal(config.command!.check.template, "Command");
   const applied = structuredClone(config);
-  await writeFile(join(root, ".opencode/prompts/body.md"), "Second");
-  await rm(join(root, ".opencode/prompts/command.md"));
+  await writeFile(join(root, ".kilo/prompts/body.md"), "Second");
+  await rm(join(root, ".kilo/prompts/command.md"));
   await hooks.config!(config);
   assert.deepEqual(config, applied);
 });
 
 test("config hook reuses startup snippets without duplicate expansion or metadata loss", async (t) => {
   const { root } = await fixture(t);
-  const snippet = join(root, ".opencode/prompts/body.md");
+  const snippet = join(root, ".kilo/prompts/body.md");
   await writeFile(snippet, "First");
   const hooks = await server.server({
     directory: root,
@@ -215,10 +215,10 @@ test("config hook reuses startup snippets without duplicate expansion or metadat
 test("skills expand on demand and keep truncated bodies without touching unrelated tools", async (t) => {
   const { root } = await fixture(t);
   await writeFile(
-    join(root, ".opencode/prompts/body.md"),
+    join(root, ".kilo/prompts/body.md"),
     "Skill {{include:nested.txt}}",
   );
-  await writeFile(join(root, ".opencode/prompts/nested.txt"), "evidence");
+  await writeFile(join(root, ".kilo/prompts/nested.txt"), "evidence");
   const hooks = await server.server({
     directory: root,
     worktree: root,
@@ -273,11 +273,11 @@ test("wrapper-only markers stay literal and unknown skill output passes through 
 test("include failures identify consumers and logical cycles without native paths or prompt bodies", async (t) => {
   const { root, context } = await fixture(t);
   await writeFile(
-    join(root, ".opencode/prompts/a.md"),
+    join(root, ".kilo/prompts/a.md"),
     "SECRET A {{include:b.md}}",
   );
   await writeFile(
-    join(root, ".opencode/prompts/b.md"),
+    join(root, ".kilo/prompts/b.md"),
     "SECRET B {{include:a.md}}",
   );
   const inventory = await discoverPrompts(context);
@@ -308,7 +308,7 @@ test("include failures identify consumers and logical cycles without native path
 test("a failing nested include leaves out only itself and reports the include chain", async (t) => {
   const { root, context } = await fixture(t);
   await writeFile(
-    join(root, ".opencode/prompts/body.md"),
+    join(root, ".kilo/prompts/body.md"),
     "Start {{include:missing.md}} end",
   );
   const { input, toasts } = recordingToasts(context);
@@ -352,7 +352,7 @@ test("skill include failures warn with honest consumer context", async (t) => {
 
 test("a failing skill include is left out while valid includes still expand", async (t) => {
   const { root, context } = await fixture(t);
-  await writeFile(join(root, ".opencode/prompts/body.md"), "Expanded first");
+  await writeFile(join(root, ".kilo/prompts/body.md"), "Expanded first");
   const { input, toasts } = recordingToasts(context);
   const hooks = await server.server(input);
   const output = skillOutput("{{include:body.md}} then {{include:missing.md}}");
@@ -561,7 +561,7 @@ test("skill commands without markers, and failed command lookups, never warn or 
 
 test("config include failures show one warning toast naming every incomplete consumer", async (t) => {
   const { root, context } = await fixture(t);
-  await writeFile(join(root, ".opencode/prompts/body.md"), "Body");
+  await writeFile(join(root, ".kilo/prompts/body.md"), "Body");
   const { input, toasts } = recordingToasts(context);
   const hooks = await server.server(input);
   const config: Config = {
@@ -584,7 +584,7 @@ test("config include failures show one warning toast naming every incomplete con
   assert.equal(toasts[0].body.variant, "warning");
   assert.match(
     toasts[0].body.message,
-    /^Some includes were not expanded in 2 prompts\. agent "review": Prompt "missing\.md" does not exist.* See the OpenCode log for 1 more\.$/,
+    /^Some includes were not expanded in 2 prompts\. agent "review": Prompt "missing\.md" does not exist.* See the Kilo log for 1 more\.$/,
   );
 
   for (const showToast of [
@@ -612,7 +612,7 @@ test("config composition preserves plugin registration without publishing editor
     worktree: root,
   } as PluginInput);
   const config: Config = {
-    plugin: ["@lunchbox-labs/opencode-prompt-composer"],
+    plugin: ["@lunchbox-labs/kilo-prompt-composer"],
     agent: { review: { prompt: "Text" } },
   };
   const registration = structuredClone(config.plugin);
@@ -622,7 +622,7 @@ test("config composition preserves plugin registration without publishing editor
 
 test("plugin options are ignored with one warning on the first config hook", async (t) => {
   const { root, context } = await fixture(t);
-  await writeFile(join(root, ".opencode/prompts/body.md"), "Body");
+  await writeFile(join(root, ".kilo/prompts/body.md"), "Body");
   const { input, toasts } = recordingToasts(context);
   const hooks = await server.server(input, {
     reloadToken: "old-editor-token",

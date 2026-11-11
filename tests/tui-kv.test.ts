@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { setImmediate } from "node:timers/promises";
 import { test } from "node:test";
-import type { TuiPluginApi, TuiPluginMeta } from "@opencode-ai/plugin/tui";
+import type { TuiPluginApi, TuiPluginMeta } from "@kilocode/plugin/tui";
 import tui from "../src/tui.ts";
 import { fixedMenuApi, fixedMenuView } from "./fixed-menu-harness.ts";
 

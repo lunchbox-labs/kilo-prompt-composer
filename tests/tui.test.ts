@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { setImmediate } from "node:timers/promises";
 import { test } from "node:test";
-import type { Config } from "@opencode-ai/plugin";
-import type { TuiPluginApi, TuiPluginMeta } from "@opencode-ai/plugin/tui";
+import type { Config } from "@kilocode/plugin";
+import type { TuiPluginApi, TuiPluginMeta } from "@kilocode/plugin/tui";
 import { MAX_CODE_POINTS_PER_VIEW } from "../src/preview.ts";
 import tui from "../src/tui.ts";
 import {
@@ -470,7 +470,7 @@ test("read errors offer only a read-only retry that fetches the loaded config", 
     {
       title: "Retry viewing prompts",
       value: "retry",
-      description: "Could not read loaded prompts from OpenCode.",
+      description: "Could not read loaded prompts from Kilo.",
     },
   ]);
   h.read = () =>
@@ -781,4 +781,23 @@ test("agent metadata failures do not guess built-in origins", async () => {
   );
   assert.equal(h.agentReads[0].directory, h.api.state.path.directory);
   assert.equal(h.agentReads[0].signal, h.controller.signal);
+});
+
+test("viewer omits Kilo commands without a loaded template", async () => {
+  const h = await harness({
+    command: {
+      action: { description: "Host action" },
+      check: { template: "Review" },
+    },
+  } as unknown as Config);
+  h.open();
+  await h.view("View prompts");
+  h.choose("commands");
+  const commands = await h.view("Loaded command templates");
+  assert.deepEqual(
+    commands.options?.map(({ value }) => value),
+    ["command:check", "\u0000back"],
+  );
+  h.choose("command:check");
+  assert.equal((await h.view("Command: check")).message, "Review");
 });

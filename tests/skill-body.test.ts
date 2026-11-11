@@ -5,7 +5,7 @@ import { expandSkillBody } from "../src/skill-body.ts";
 
 const metadata = { name: "evidence", dir: "/skills/evidence" };
 
-// The literal V1 format emitted by OpenCode v1.19.0 and v1.19.3 skill.ts.
+// The literal V1 format emitted by Kilo v7.8.27 skill.ts.
 function nativeOutput(body: string, info = metadata, files: string[] = []) {
   return [
     `<skill_content name="${info.name}">`,
@@ -313,7 +313,7 @@ test("keeps the composed body and summarizes the includes it left out", async ()
     nativeOutput("Partly expanded"),
   );
   assert.deepEqual(notices, [
-    'Skill "evidence" has includes that were not expanded. First problem. See the OpenCode log for 2 more.',
+    'Skill "evidence" has includes that were not expanded. First problem. See the Kilo log for 2 more.',
   ]);
 });
 
@@ -335,4 +335,33 @@ test("keeps the native body when every include was left out and nothing else rem
   assert.deepEqual(notices, [
     'Skill "evidence" has includes that were not expanded. Its native text was kept because nothing else was left. Missing.',
   ]);
+});
+
+test("composes Kilo built-in skills without a filesystem footer", async () => {
+  const info = { name: "kilo-config", dir: "builtin" };
+  const body = "Intro\n{{include:body.md}}\nEnd";
+  const output = `<skill_content name="${info.name}">\n# Skill: ${info.name}\n\n${body}\n</skill_content>`;
+  assert.equal(
+    await expandSkillBody(
+      output,
+      info,
+      async (text) => {
+        assert.equal(text, body);
+        return "Expanded body";
+      },
+      mustNotNotify,
+    ),
+    output.replace(body, "Expanded body"),
+  );
+});
+
+test("Kilo built-in framing is accepted only with native builtin metadata", async () => {
+  const output =
+    '<skill_content name="evidence">\n# Skill: evidence\n\n{{include:body.md}}\n</skill_content>';
+  await unchangedWithNotice(output, metadata, /unknown or incomplete framing/);
+  await unchangedWithNotice(
+    output + "trailing",
+    { name: "evidence", dir: "builtin" },
+    /unknown or incomplete framing/,
+  );
 });

@@ -1,4 +1,4 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { PluginInput } from "@kilocode/plugin";
 
 type NoticeClient = Partial<Pick<PluginInput["client"], "tui" | "app">>;
 export type NoticeVariant = "warning" | "error";
@@ -55,5 +55,5 @@ export function firstProblem(problems: readonly string[]): string {
   const remaining = problems.length - 1;
   return remaining === 0
     ? (problems[0] ?? "")
-    : `${problems[0]} See the OpenCode log for ${remaining} more.`;
+    : `${problems[0]} See the Kilo log for ${remaining} more.`;
 }

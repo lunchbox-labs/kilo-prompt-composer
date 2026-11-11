@@ -1,15 +1,17 @@
 # Discovery
 
-Prompt Composer discovers `prompts/` under OpenCode's configuration directories. It follows this order:
+Prompt Composer discovers `prompts/` under Kilo's configuration directories. It follows this order:
 
-1. The global XDG OpenCode config directory (`~/.config/opencode` unless `XDG_CONFIG_HOME` is absolute).
-2. Existing project `.opencode` directories, starting at the opened directory and ascending through the worktree. Non-Git projects ascend to the filesystem root.
-3. Home `.opencode`, if present.
-4. `OPENCODE_CONFIG_DIR`, when set.
+1. The global XDG Kilo config directory (`~/.config/kilo` unless `XDG_CONFIG_HOME` is absolute).
+2. Existing project `.kilocode` and `.kilo` directories (in that order at each level), starting at the opened directory and ascending through the worktree. Non-Git projects ascend to the filesystem root.
+3. Home `.kilocode` and `.kilo`, in that order, when present.
+4. `KILO_CONFIG_DIR`, when set.
 
-Duplicate directory paths retain their first occurrence. Later files win collisions by relative filename, including nested names such as `review/findings.md`. A worktree-root `.opencode` can override a descendant `.opencode`; home and custom config directories follow project directories. `OPENCODE_DISABLE_PROJECT_CONFIG=true` or `1` disables project discovery while retaining the other roots.
+Duplicate directory paths retain their first occurrence. Later files win collisions by relative filename, including nested names such as `review/findings.md`. At each level `.kilo` overrides `.kilocode`. A worktree-root `.kilo` can override a descendant `.kilo`; home and custom config directories follow project directories. `KILO_DISABLE_PROJECT_CONFIG=true` or `1` disables project discovery while retaining the other roots.
 
-This mirrors the host's agent/command directory order. It does not scan `.agents`, `.claude`, remote skill URLs or arbitrary skill paths for snippets. OpenCode discovers native component definitions; Prompt Composer discovers only prompt snippets. The plugin ignores obsolete `prompt-composer.jsonc` files.
+OpenCode directories and `OPENCODE_*` environment variables are not used.
+
+This mirrors the host's agent/command directory order. It does not scan `.agents`, `.claude`, remote skill URLs or arbitrary skill paths for snippets. Kilo discovers native component definitions; Prompt Composer discovers only prompt snippets. The plugin ignores obsolete `prompt-composer.jsonc` files.
 
 ## References
 

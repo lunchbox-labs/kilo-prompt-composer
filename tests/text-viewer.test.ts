@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { test } from "node:test";
-import type { TuiPluginApi } from "@opencode-ai/plugin/tui";
+import type { TuiPluginApi } from "@kilocode/plugin/tui";
 import {
   destroyFixedMenu,
   fixedMenuApi,

@@ -1,4 +1,4 @@
-import type { Config } from "@opencode-ai/plugin";
+import type { Config } from "@kilocode/plugin";
 import { diagnosticName } from "./errors.ts";
 import type { SkippedInclude } from "./include-core.ts";
 import { errorMessage } from "./notices.ts";
